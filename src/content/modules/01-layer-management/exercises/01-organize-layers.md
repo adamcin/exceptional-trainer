@@ -22,7 +22,7 @@ You've received a Photoshop document with 30 unorganized layers from another des
 
 ## Setup
 
-1. Download the practice file: `messy-layers.psd` (simulated)
+1. Download the practice file: [messy-layers.psd](/exceptional-trainer/assets/messy-layers.psd)
 2. Open it in Photoshop
 3. Open the Layers panel (Window > Layers or F7)
 

@@ -84,7 +84,7 @@ npm run lint
 
 ## Deployment
 
-![GitHub Pages](https://github.com/username/exceptional-trainer/actions/workflows/deploy.yml/badge.svg)
+![GitHub Pages](https://github.com/adamcin/exceptional-trainer/actions/workflows/deploy.yml/badge.svg)
 
 This project is configured for automatic deployment to GitHub Pages using GitHub Actions.
 

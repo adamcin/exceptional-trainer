@@ -1,0 +1,1289 @@
+ARCHITECTURAL OUTLINE - EXCEPTIONAL TRAINER
+
+================================================================================
+1. CURRICULUM DATA MODEL
+================================================================================
+
+CONTENT STRUCTURE:
+/src/content/
+  ├── modules/
+  │   ├── 01-fundamentals/
+  │   │   ├── module.json          # Module metadata
+  │   │   ├── overview.md          # Module introduction
+  │   │   ├── exercises/
+  │   │   │   ├── 01-layers.md
+  │   │   │   ├── 02-selections.md
+  │   │   │   └── 03-masks.md
+  │   │   ├── challenges/
+  │   │   │   └── 01-combine-techniques.md
+  │   │   └── assessment.md        # Self-assessment criteria
+  │   ├── 02-selection-mastery/
+  │   │   └── ...
+  │   └── ...
+  └── schema.ts                    # TypeScript type definitions
+
+MODULE METADATA SCHEMA (module.json):
+{
+  "id": "01-fundamentals",
+  "version": 1,
+  "title": "Photoshop Fundamentals",
+  "description": "Master essential tools and concepts",
+  "order": 1,
+  "estimatedMinutes": 120,
+  "prerequisites": [],
+  "learningObjectives": [
+    "Understand layer hierarchy and blending modes",
+    "Create precise selections using multiple tools",
+    "Apply and refine layer masks"
+  ],
+  "exercises": [
+    {
+      "id": "01-layers",
+      "title": "Layer Management Basics",
+      "file": "exercises/01-layers.md",
+      "estimatedMinutes": 30
+    }
+  ],
+  "challenges": [
+    {
+      "id": "01-combine",
+      "title": "Combine All Techniques",
+      "file": "challenges/01-combine-techniques.md",
+      "estimatedMinutes": 45
+    }
+  ],
+  "assessment": {
+    "file": "assessment.md",
+    "passingCriteria": 0.8,
+    "criteriaCount": 10
+  }
+}
+
+MARKDOWN FRONTMATTER SCHEMA:
+---
+id: layers-basics
+type: exercise | challenge | assessment | overview
+title: Layer Management Basics
+duration: 30
+skills:
+  - layers
+  - organization
+  - visibility
+difficulty: beginner | intermediate | advanced
+---
+
+TYPESCRIPT TYPE DEFINITIONS (src/content/schema.ts):
+export type ContentType = 'overview' | 'exercise' | 'challenge' | 'assessment';
+export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
+
+export interface ModuleMetadata {
+  id: string;
+  version: number;
+  title: string;
+  description: string;
+  order: number;
+  estimatedMinutes: number;
+  prerequisites: string[];
+  learningObjectives: string[];
+  exercises: ContentItem[];
+  challenges: ContentItem[];
+  assessment: AssessmentMetadata;
+}
+
+export interface ContentItem {
+  id: string;
+  title: string;
+  file: string;
+  estimatedMinutes: number;
+}
+
+export interface AssessmentMetadata {
+  file: string;
+  passingCriteria: number; // 0.0 to 1.0
+  criteriaCount: number;
+}
+
+export interface ContentFrontmatter {
+  id: string;
+  type: ContentType;
+  title: string;
+  duration: number;
+  skills: string[];
+  difficulty: DifficultyLevel;
+}
+
+export interface ParsedContent {
+  frontmatter: ContentFrontmatter;
+  content: string;
+  raw: string;
+}
+
+CONTENT DISCOVERY PATTERN:
+// src/lib/contentLoader.ts
+const moduleFiles = import.meta.glob<{ default: ModuleMetadata }>(
+  '/src/content/modules/*/module.json',
+  { eager: false }
+);
+
+const markdownFiles = import.meta.glob<string>(
+  '/src/content/modules/**/*.md',
+  { eager: false, query: '?raw', import: 'default' }
+);
+
+export async function loadModule(moduleId: string): Promise<ModuleMetadata> {
+  const path = `/src/content/modules/${moduleId}/module.json`;
+  const module = await moduleFiles[path]();
+  return module.default;
+}
+
+export async function loadMarkdown(modulePath: string): Promise<ParsedContent> {
+  const raw = await markdownFiles[modulePath]();
+  return parseMarkdown(raw);
+}
+
+CURRICULUM PROGRESSION MODEL:
+- Linear progression: Complete module N before accessing N+1
+- Within module: Exercises → Challenges → Assessment (sequential)
+- Assessment must pass before module marked complete
+- No time limits, save progress at any point
+
+================================================================================
+2. PROGRESS STATE MANAGEMENT
+================================================================================
+
+STATE DATA STRUCTURE:
+// src/types/progress.ts
+export interface ProgressState {
+  version: number;                    // Schema version for migrations
+  lastUpdated: string;                // ISO 8601 timestamp
+  currentModule: string | null;       // Current module ID
+  currentContent: string | null;      // Current content ID
+  modules: Record<string, ModuleProgress>;
+}
+
+export interface ModuleProgress {
+  moduleId: string;
+  status: 'locked' | 'in-progress' | 'completed';
+  startedAt: string | null;
+  completedAt: string | null;
+  exercises: Record<string, ContentProgress>;
+  challenges: Record<string, ContentProgress>;
+  assessment: AssessmentProgress | null;
+}
+
+export interface ContentProgress {
+  contentId: string;
+  status: 'not-started' | 'in-progress' | 'completed';
+  startedAt: string | null;
+  completedAt: string | null;
+  timeSpentMinutes: number;
+}
+
+export interface AssessmentProgress {
+  status: 'not-started' | 'in-progress' | 'completed' | 'failed';
+  attempts: AssessmentAttempt[];
+  bestScore: number;
+  lastAttemptAt: string | null;
+}
+
+export interface AssessmentAttempt {
+  attemptNumber: number;
+  attemptedAt: string;
+  score: number;
+  criteriaResults: Record<string, boolean>; // criteriaId -> pass/fail
+  passed: boolean;
+}
+
+INITIAL STATE FACTORY:
+export function createInitialProgress(): ProgressState {
+  return {
+    version: 1,
+    lastUpdated: new Date().toISOString(),
+    currentModule: null,
+    currentContent: null,
+    modules: {},
+  };
+}
+
+export function initializeModuleProgress(moduleId: string): ModuleProgress {
+  return {
+    moduleId,
+    status: 'locked',
+    startedAt: null,
+    completedAt: null,
+    exercises: {},
+    challenges: {},
+    assessment: null,
+  };
+}
+
+REACT CONTEXT ARCHITECTURE:
+// src/contexts/ProgressContext.tsx
+interface ProgressContextValue {
+  progress: ProgressState;
+  
+  // Navigation
+  setCurrentContent: (moduleId: string, contentId: string) => void;
+  
+  // Progress updates
+  startContent: (moduleId: string, contentId: string, type: ContentType) => void;
+  completeContent: (moduleId: string, contentId: string, type: ContentType) => void;
+  
+  // Assessment
+  startAssessment: (moduleId: string) => void;
+  submitAssessment: (moduleId: string, criteriaResults: Record<string, boolean>) => void;
+  
+  // Module management
+  unlockNextModule: (currentModuleId: string) => void;
+  isModuleUnlocked: (moduleId: string) => boolean;
+  
+  // Data management
+  exportProgress: () => string; // JSON string
+  importProgress: (json: string) => Promise<ImportResult>;
+  resetProgress: () => void;
+  
+  // Computed values
+  getModuleProgress: (moduleId: string) => ModuleProgress | null;
+  getModuleCompletionPercentage: (moduleId: string) => number;
+  getOverallCompletionPercentage: () => number;
+}
+
+interface ImportResult {
+  success: boolean;
+  error?: string;
+  migratedFrom?: number; // If migration occurred
+}
+
+LOCALSTORAGE SYNCHRONIZATION:
+// src/hooks/useLocalStorage.ts
+const STORAGE_KEY = 'exceptional-trainer-progress';
+const STORAGE_VERSION = 1;
+
+export function useProgressPersistence(
+  progress: ProgressState,
+  setProgress: (state: ProgressState) => void
+) {
+  // Load on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const migrated = migrateProgress(parsed);
+        setProgress(migrated);
+      }
+    } catch (error) {
+      console.error('Failed to load progress:', error);
+      // Show user-friendly error notification
+    }
+  }, []);
+
+  // Save on change (debounced)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+      } catch (error) {
+        if (error.name === 'QuotaExceededError') {
+          // Notify user, prompt export
+        }
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [progress]);
+}
+
+MIGRATION STRATEGY:
+// src/lib/migrations.ts
+export function migrateProgress(stored: any): ProgressState {
+  const version = stored.version || 0;
+  
+  if (version === CURRENT_VERSION) {
+    return stored as ProgressState;
+  }
+  
+  let migrated = stored;
+  
+  // Apply migrations sequentially
+  if (version < 1) {
+    migrated = migrateV0toV1(migrated);
+  }
+  // Future migrations
+  // if (version < 2) {
+  //   migrated = migrateV1toV2(migrated);
+  // }
+  
+  return migrated;
+}
+
+EXPORT/IMPORT JSON SCHEMA:
+{
+  "exportedAt": "2025-01-30T10:00:00Z",
+  "exportVersion": 1,
+  "appVersion": "1.0.0",
+  "data": {
+    // Full ProgressState object
+  }
+}
+
+================================================================================
+3. ASSESSMENT SYSTEM DESIGN
+================================================================================
+
+ASSESSMENT CONTENT FORMAT (assessment.md):
+---
+id: fundamentals-assessment
+type: assessment
+title: Fundamentals Assessment
+criteriaCount: 10
+passingScore: 0.8
+---
+
+# Photoshop Fundamentals Assessment
+
+Complete this self-assessment after finishing all exercises and challenges.
+
+## Assessment Criteria
+
+### 1. Layer Organization
+**Task**: Open a multi-layer document and organize layers into logical groups.
+
+**Success Criteria**:
+- [ ] Layers are grouped by function (background, subject, effects)
+- [ ] Groups have descriptive names
+- [ ] Layer hierarchy is clean and navigable
+
+### 2. Non-Destructive Masking
+**Task**: Hide part of an image without deleting pixels.
+
+**Success Criteria**:
+- [ ] Layer mask is used (not eraser)
+- [ ] Mask edges are refined appropriately
+- [ ] Original image data is preserved
+
+[... 8 more criteria ...]
+
+## Scoring
+Mark each criterion as pass/fail. You must pass 8/10 criteria (80%) to complete this module.
+
+ASSESSMENT PARSING:
+// src/lib/assessmentParser.ts
+export interface AssessmentCriterion {
+  id: string;
+  title: string;
+  task: string;
+  successCriteria: string[];
+  order: number;
+}
+
+export function parseAssessment(markdown: string): AssessmentCriterion[] {
+  // Parse markdown to extract criteria
+  // Look for heading level 3 (###) as criterion titles
+  // Extract task and success criteria lists
+  // Return structured array
+}
+
+SCORING LOGIC:
+// src/lib/scoring.ts
+export interface ScoringResult {
+  score: number;              // 0.0 to 1.0
+  passed: boolean;
+  criteriaResults: Record<string, boolean>;
+  passedCount: number;
+  totalCount: number;
+}
+
+export function calculateScore(
+  criteriaResults: Record<string, boolean>,
+  passingThreshold: number
+): ScoringResult {
+  const values = Object.values(criteriaResults);
+  const passedCount = values.filter(Boolean).length;
+  const totalCount = values.length;
+  const score = totalCount > 0 ? passedCount / totalCount : 0;
+  const passed = score >= passingThreshold;
+  
+  return {
+    score,
+    passed,
+    criteriaResults,
+    passedCount,
+    totalCount,
+  };
+}
+
+PROGRESSION GATING:
+export function canAccessModule(
+  moduleId: string,
+  modules: ModuleMetadata[],
+  progress: ProgressState
+): boolean {
+  const module = modules.find(m => m.id === moduleId);
+  if (!module) return false;
+  
+  // First module is always unlocked
+  if (module.order === 1) return true;
+  
+  // Check all prerequisites completed
+  for (const prereqId of module.prerequisites) {
+    const prereqProgress = progress.modules[prereqId];
+    if (!prereqProgress || prereqProgress.status !== 'completed') {
+      return false;
+    }
+  }
+  
+  // Check previous module completed (sequential)
+  const prevModule = modules.find(m => m.order === module.order - 1);
+  if (prevModule) {
+    const prevProgress = progress.modules[prevModule.id];
+    if (!prevProgress || prevProgress.status !== 'completed') {
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+RETAKE HANDLING:
+- Assessment can be retaken unlimited times
+- Each attempt is recorded with timestamp and score
+- Best score is tracked separately
+- Failed attempts don't block retakes
+- Progress from exercises/challenges is never lost
+
+ASSESSMENT UI FLOW:
+1. User navigates to assessment page
+2. System checks if exercises/challenges complete (warning if not)
+3. User reviews criteria and completes tasks in Photoshop
+4. User marks each criterion pass/fail with checkboxes
+5. User clicks "Submit Assessment"
+6. System calculates score and pass/fail
+7. Result displayed with feedback
+8. If passed: Module marked complete, next module unlocked
+9. If failed: Option to review content or retry immediately
+
+================================================================================
+4. COMPONENT ARCHITECTURE
+================================================================================
+
+COMPONENT HIERARCHY:
+App (src/App.tsx)
+├── Provider (@react-spectrum/provider)
+│   └── ProgressProvider (src/contexts/ProgressContext)
+│       └── HashRouter (react-router-dom)
+│           └── MainLayout (src/components/layouts/MainLayout.tsx)
+│               ├── Navigation (src/components/Navigation.tsx)
+│               │   ├── ProgressOverview
+│               │   └── ModuleList
+│               │       └── ModuleListItem (per module)
+│               └── Routes
+│                   ├── HomePage (src/pages/HomePage.tsx)
+│                   ├── DashboardPage (src/pages/DashboardPage.tsx)
+│                   │   ├── OverallProgress
+│                   │   ├── ModuleGrid
+│                   │   │   └── ModuleCard (per module)
+│                   │   └── ProgressActions (export/import)
+│                   ├── ModulePage (src/pages/ModulePage.tsx)
+│                   │   ├── ModuleHeader
+│                   │   ├── ModuleNav (tabs/list)
+│                   │   └── ContentView
+│                   │       ├── OverviewView
+│                   │       ├── ExerciseView
+│                   │       ├── ChallengeView
+│                   │       └── AssessmentView
+│                   └── NotFoundPage (src/pages/NotFoundPage.tsx)
+
+KEY COMPONENT RESPONSIBILITIES:
+
+MainLayout:
+- Overall page structure (sidebar + main content)
+- Responsive layout (collapsible nav on smaller screens)
+- Error boundary wrapper
+
+Navigation:
+- Display module list with completion status
+- Quick navigation between modules
+- Overall progress indicator
+- Export/import/reset controls
+
+DashboardPage:
+- Overview of all modules with completion %
+- Quick access to current/next module
+- Recent activity summary
+- Data management (export/import)
+
+ModulePage:
+- Dynamic route: /module/:moduleId/:contentType?/:contentId?
+- Load module metadata on mount
+- Render current content (overview/exercise/challenge/assessment)
+- Navigation between content items within module
+- Progress indicators for current module
+
+ContentView (abstract):
+- Render markdown content
+- Track time spent
+- Mark content as started/completed
+- Navigation controls (prev/next)
+
+AssessmentView:
+- Display assessment criteria
+- Interactive checklist for self-assessment
+- Score calculation and display
+- Pass/fail feedback
+- Retry or proceed controls
+
+COMPONENT PROPS INTERFACES:
+
+// src/components/ModuleCard.tsx
+export interface ModuleCardProps {
+  module: ModuleMetadata;
+  progress: ModuleProgress | null;
+  isLocked: boolean;
+  onNavigate: (moduleId: string) => void;
+}
+
+// src/components/ContentView.tsx
+export interface ContentViewProps {
+  moduleId: string;
+  contentId: string;
+  contentType: ContentType;
+  onComplete: () => void;
+  onNavigateNext: () => void;
+  onNavigatePrev: () => void;
+}
+
+// src/components/AssessmentView.tsx
+export interface AssessmentViewProps {
+  moduleId: string;
+  assessment: AssessmentMetadata;
+  progress: AssessmentProgress | null;
+  onSubmit: (results: Record<string, boolean>) => void;
+}
+
+SHARED COMPONENTS:
+- MarkdownRenderer: Wrapper around react-markdown with plugins
+- ProgressBar: Visual progress indicator
+- CompletionBadge: Status badge (locked/in-progress/completed)
+- TimeEstimate: Display estimated time for content
+- ErrorFallback: Error boundary fallback UI
+- LoadingSpinner: Loading states
+
+STATE MANAGEMENT APPROACH:
+- Global state: ProgressContext (curriculum progress, current location)
+- Component state: Local UI state (form inputs, modals, collapsed sections)
+- No state management library needed
+- Props drilling is acceptable for this app size
+
+================================================================================
+5. NAVIGATION & ROUTING
+================================================================================
+
+ROUTING STRATEGY:
+- React Router with createHashRouter (GitHub Pages compatible)
+- Hash-based URLs: example.com/#/module/01-fundamentals
+- Deep linking support for all content
+- Browser back/forward navigation
+
+URL STRUCTURE:
+/                                  → HomePage (welcome/intro)
+/dashboard                         → DashboardPage (all modules overview)
+/module/:moduleId                  → ModulePage (module overview)
+/module/:moduleId/exercise/:exId   → ModulePage (specific exercise)
+/module/:moduleId/challenge/:chId  → ModulePage (specific challenge)
+/module/:moduleId/assessment       → ModulePage (assessment)
+*                                  → NotFoundPage
+
+ROUTE CONFIGURATION:
+// src/router.tsx
+import { createHashRouter } from 'react-router-dom';
+
+export const router = createHashRouter([
+  {
+    path: '/',
+    element: <MainLayout />,
+    errorElement: <ErrorPage />,
+    children: [
+      {
+        index: true,
+        element: <HomePage />,
+      },
+      {
+        path: 'dashboard',
+        element: <DashboardPage />,
+      },
+      {
+        path: 'module/:moduleId',
+        element: <ModulePage />,
+        children: [
+          {
+            index: true,
+            element: <ModuleOverview />,
+          },
+          {
+            path: 'exercise/:exerciseId',
+            element: <ExerciseView />,
+          },
+          {
+            path: 'challenge/:challengeId',
+            element: <ChallengeView />,
+          },
+          {
+            path: 'assessment',
+            element: <AssessmentView />,
+          },
+        ],
+      },
+    ],
+  },
+]);
+
+PROGRAMMATIC NAVIGATION:
+// src/hooks/useNavigation.ts
+import { useNavigate } from 'react-router-dom';
+
+export function useAppNavigation() {
+  const navigate = useNavigate();
+  const { setCurrentContent } = useProgress();
+  
+  const goToModule = (moduleId: string) => {
+    setCurrentContent(moduleId, null);
+    navigate(`/module/${moduleId}`);
+  };
+  
+  const goToExercise = (moduleId: string, exerciseId: string) => {
+    setCurrentContent(moduleId, exerciseId);
+    navigate(`/module/${moduleId}/exercise/${exerciseId}`);
+  };
+  
+  // ... similar for challenges, assessment
+  
+  return { goToModule, goToExercise, /* ... */ };
+}
+
+NAVIGATION STATE SYNC:
+- Route changes update ProgressContext.currentModule/currentContent
+- ProgressContext changes can trigger programmatic navigation
+- useEffect hooks sync route params with context
+
+DEEP LINKING:
+- All routes are shareable/bookmarkable
+- Loading a deep link loads necessary data:
+  1. Parse route params
+  2. Load module metadata
+  3. Load specific content
+  4. Check access permissions (locked modules redirect)
+
+NAVIGATION GUARDS:
+// src/guards/ModuleGuard.tsx
+export function ModuleGuard({ children }: { children: React.ReactNode }) {
+  const { moduleId } = useParams();
+  const { isModuleUnlocked } = useProgress();
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    if (moduleId && !isModuleUnlocked(moduleId)) {
+      // Redirect to dashboard with message
+      navigate('/dashboard', { 
+        state: { 
+          error: 'Module locked. Complete prerequisites first.' 
+        }
+      });
+    }
+  }, [moduleId]);
+  
+  return <>{children}</>;
+}
+
+SCROLL RESTORATION:
+- ScrollRestoration component from react-router-dom
+- Scroll to top on route change
+- Restore scroll position on back navigation
+
+================================================================================
+6. ERROR HANDLING STRATEGY
+================================================================================
+
+ERROR CATEGORIES:
+
+1. Component Errors (React errors during render/lifecycle)
+2. Content Loading Errors (failed to fetch markdown/JSON)
+3. Storage Errors (localStorage quota/corruption/browser restrictions)
+4. Parsing Errors (invalid markdown/JSON/frontmatter)
+5. Navigation Errors (invalid routes/missing params)
+
+ERROR BOUNDARY ARCHITECTURE:
+
+// src/components/ErrorBoundary.tsx
+export class ErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback?: React.ComponentType<FallbackProps> },
+  { hasError: boolean; error: Error | null }
+> {
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Error boundary caught:', error, errorInfo);
+    // Could send to analytics/monitoring service
+  }
+  
+  render() {
+    if (this.state.hasError) {
+      const Fallback = this.props.fallback || DefaultErrorFallback;
+      return <Fallback error={this.state.error} reset={() => window.location.reload()} />;
+    }
+    return this.props.children;
+  }
+}
+
+// Wrap different parts of the tree
+App
+├── ErrorBoundary (top-level, catches catastrophic errors)
+│   └── ProgressProvider
+│       └── ErrorBoundary (catches provider errors)
+│           └── Router
+│               └── MainLayout
+│                   └── ErrorBoundary (catches route/page errors)
+│                       └── Page content
+
+CONTENT LOADING ERROR HANDLING:
+
+// src/components/ContentView.tsx
+export function ContentView({ moduleId, contentId }: ContentViewProps) {
+  const [content, setContent] = useState<ParsedContent | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    loadContent(moduleId, contentId)
+      .then(setContent)
+      .catch(err => {
+        console.error('Failed to load content:', err);
+        setError(err);
+      })
+      .finally(() => setLoading(false));
+  }, [moduleId, contentId]);
+  
+  if (loading) return <LoadingSpinner />;
+  if (error) return <ContentErrorFallback error={error} onRetry={() => window.location.reload()} />;
+  if (!content) return <ContentNotFound />;
+  
+  return <MarkdownRenderer content={content.content} />;
+}
+
+LOCALSTORAGE ERROR HANDLING:
+
+// src/hooks/useProgressPersistence.ts
+function handleStorageError(error: Error): void {
+  if (error.name === 'QuotaExceededError') {
+    // Show dialog: "Storage full. Please export your progress."
+    showNotification({
+      type: 'error',
+      title: 'Storage Full',
+      message: 'Please export your progress to backup your data.',
+      actions: [
+        { label: 'Export Now', onClick: () => exportProgress() }
+      ]
+    });
+  } else if (error.name === 'SecurityError') {
+    // Private browsing or storage disabled
+    showNotification({
+      type: 'warning',
+      title: 'Storage Unavailable',
+      message: 'Your browser settings prevent saving progress. Enable storage or use export/import.',
+    });
+  } else {
+    // Generic storage error
+    showNotification({
+      type: 'error',
+      title: 'Failed to Save Progress',
+      message: 'Your progress could not be saved. Try refreshing the page.',
+    });
+  }
+}
+
+PARSING ERROR HANDLING:
+
+// src/lib/markdownParser.ts
+export function parseMarkdown(raw: string): ParsedContent {
+  try {
+    const { data, content } = parseFrontmatter(raw);
+    
+    // Validate frontmatter schema
+    if (!isValidFrontmatter(data)) {
+      throw new Error('Invalid frontmatter schema');
+    }
+    
+    return {
+      frontmatter: data as ContentFrontmatter,
+      content,
+      raw,
+    };
+  } catch (error) {
+    console.error('Markdown parsing failed:', error);
+    // Return safe fallback
+    return {
+      frontmatter: {
+        id: 'unknown',
+        type: 'exercise',
+        title: 'Content Error',
+        duration: 0,
+        skills: [],
+        difficulty: 'beginner',
+      },
+      content: '**Error**: This content could not be loaded properly.',
+      raw,
+    };
+  }
+}
+
+USER MESSAGING:
+
+// src/lib/notifications.ts
+export interface Notification {
+  type: 'info' | 'success' | 'warning' | 'error';
+  title: string;
+  message: string;
+  actions?: Array<{ label: string; onClick: () => void }>;
+  duration?: number; // auto-dismiss after N ms, or null for persistent
+}
+
+// Use React Spectrum Toast or Dialog components
+// Store in context for global access
+
+RECOVERY MECHANISMS:
+
+1. Corrupted localStorage:
+   - Detect invalid JSON on parse
+   - Offer to reset to default state
+   - Prompt user to import backup if available
+
+2. Missing content files:
+   - Show friendly "Content not found" message
+   - Offer to return to module overview
+   - Log error for debugging
+
+3. Network errors (if future features need fetch):
+   - Retry with exponential backoff
+   - Show offline indicator
+   - Cache previously loaded content
+
+4. Module metadata mismatch:
+   - Validate module.json structure on load
+   - Fall back to safe defaults
+   - Notify user of content issues
+
+ERROR LOGGING:
+- Console.error for all errors (dev debugging)
+- Structured error objects with context
+- No external error tracking (privacy, cost)
+- Consider window.onerror for uncaught exceptions
+
+================================================================================
+7. CONTENT LOADING & CODE SPLITTING STRATEGY
+================================================================================
+
+CODE SPLITTING GOALS:
+- Fast initial load (< 2s on 3G)
+- Load modules on-demand as user progresses
+- Share common code (React, React Spectrum) in main bundle
+- Lazy load markdown content
+
+BUNDLE ARCHITECTURE:
+
+main-bundle.js          → App, Router, ProgressContext, MainLayout
+  ├── vendor.js         → React, React DOM, React Router (automatic chunking)
+  ├── spectrum.js       → @adobe/react-spectrum components (automatic)
+  └── markdown.js       → react-markdown + plugins (automatic)
+
+module-01.js            → Components for module 01 (lazy loaded)
+module-02.js            → Components for module 02 (lazy loaded)
+...
+
+content-01-*.md.js      → Markdown content for module 01 (lazy loaded)
+content-02-*.md.js      → Markdown content for module 02 (lazy loaded)
+...
+
+ROUTE-BASED CODE SPLITTING:
+
+// src/router.tsx
+import { lazy, Suspense } from 'react';
+
+const HomePage = lazy(() => import('./pages/HomePage'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const ModulePage = lazy(() => import('./pages/ModulePage'));
+
+export const router = createHashRouter([
+  {
+    path: '/',
+    element: (
+      <Suspense fallback={<LoadingSpinner />}>
+        <MainLayout />
+      </Suspense>
+    ),
+    children: [
+      {
+        index: true,
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <HomePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'dashboard',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <DashboardPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'module/:moduleId/*',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <ModulePage />
+          </Suspense>
+        ),
+      },
+    ],
+  },
+]);
+
+CONTENT LOADING STRATEGY:
+
+// src/lib/contentLoader.ts
+// Discover all module.json files at build time
+const moduleManifests = import.meta.glob<{ default: ModuleMetadata }>(
+  '/src/content/modules/*/module.json',
+  { eager: false } // Lazy load
+);
+
+// Discover all markdown files at build time
+const markdownFiles = import.meta.glob<string>(
+  '/src/content/modules/**/*.md',
+  { 
+    eager: false,
+    query: '?raw',
+    import: 'default'
+  }
+);
+
+// Load module metadata (cached in memory after first load)
+const moduleCache = new Map<string, ModuleMetadata>();
+
+export async function loadModule(moduleId: string): Promise<ModuleMetadata> {
+  if (moduleCache.has(moduleId)) {
+    return moduleCache.get(moduleId)!;
+  }
+  
+  const path = `/src/content/modules/${moduleId}/module.json`;
+  const loader = moduleManifests[path];
+  
+  if (!loader) {
+    throw new Error(`Module not found: ${moduleId}`);
+  }
+  
+  const module = await loader();
+  moduleCache.set(moduleId, module.default);
+  return module.default;
+}
+
+// Load markdown content (parsed and cached)
+const contentCache = new Map<string, ParsedContent>();
+
+export async function loadContent(
+  moduleId: string,
+  relativePath: string
+): Promise<ParsedContent> {
+  const fullPath = `/src/content/modules/${moduleId}/${relativePath}`;
+  
+  if (contentCache.has(fullPath)) {
+    return contentCache.get(fullPath)!;
+  }
+  
+  const loader = markdownFiles[fullPath];
+  
+  if (!loader) {
+    throw new Error(`Content not found: ${fullPath}`);
+  }
+  
+  const raw = await loader();
+  const parsed = parseMarkdown(raw);
+  contentCache.set(fullPath, parsed);
+  return parsed;
+}
+
+// Preload next module/content for faster navigation
+export function preloadModule(moduleId: string): void {
+  loadModule(moduleId).catch(err => {
+    console.warn('Preload failed:', moduleId, err);
+  });
+}
+
+export function preloadContent(moduleId: string, relativePath: string): void {
+  loadContent(moduleId, relativePath).catch(err => {
+    console.warn('Preload failed:', relativePath, err);
+  });
+}
+
+LOADING STATE PATTERNS:
+
+// Skeleton loader for module page
+<View>
+  <ProgressCircle isIndeterminate />
+  <Text>Loading module content...</Text>
+</View>
+
+// Inline spinner for content
+<Flex direction="column" gap="size-200">
+  {loading && <ProgressCircle size="S" isIndeterminate />}
+  {!loading && content}
+</Flex>
+
+// Error retry pattern
+<IllustratedMessage>
+  <Heading>Failed to Load Content</Heading>
+  <Content>An error occurred while loading this content.</Content>
+  <Button onPress={retry}>Try Again</Button>
+</IllustratedMessage>
+
+PRELOADING STRATEGY:
+
+1. On module page mount:
+   - Load current module metadata
+   - Preload overview content
+   - Preload first exercise
+
+2. When viewing content:
+   - Preload next content item in sequence
+   - Preload assessment if on last challenge
+
+3. On dashboard:
+   - Preload current module metadata
+   - Preload next unlocked module metadata
+
+4. User-triggered preload:
+   - Hover over module card → preload that module
+   - Click "Next" button → immediate preload
+
+CACHING STRATEGY:
+
+- In-memory cache for metadata and content (Map objects)
+- Cache persists for session (no localStorage for content)
+- Cache invalidation not needed (static content)
+- Browser cache handles JS bundles (Vite fingerprints)
+
+VITE CONFIGURATION:
+
+// vite.config.ts
+export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-spectrum': ['@adobe/react-spectrum'],
+          'vendor-markdown': ['react-markdown', 'remark-gfm'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000, // KB, warn if chunks too large
+  },
+});
+
+PERFORMANCE TARGETS:
+
+- Initial load (main bundle): < 500 KB gzipped
+- Module page load: < 100ms (with preload)
+- Content load: < 50ms (with preload)
+- Time to interactive: < 3s on 3G
+
+BUNDLE ANALYSIS:
+
+# During development
+npm run build
+npm install -D rollup-plugin-visualizer
+# Configure in vite.config.ts to generate stats.html
+# Review bundle sizes and optimize as needed
+
+================================================================================
+8. GITHUB PAGES DEPLOYMENT CONFIGURATION
+================================================================================
+
+VITE BASE PATH CONFIGURATION:
+
+// vite.config.ts
+export default defineConfig({
+  base: '/exceptional-trainer/', // Match GitHub repo name
+  // Or for custom domain: base: '/'
+});
+
+Asset paths will be automatically prefixed:
+- /exceptional-trainer/assets/index-abc123.js
+- /exceptional-trainer/assets/logo-def456.png
+
+ROUTING CONFIGURATION:
+
+// src/router.tsx
+import { createHashRouter } from 'react-router-dom';
+
+// Hash routing automatically works on GitHub Pages
+// URLs: example.com/exceptional-trainer/#/module/01-fundamentals
+// No special configuration needed for hash routing
+
+export const router = createHashRouter([
+  // ... routes
+]);
+
+GITHUB ACTIONS WORKFLOW:
+
+# .github/workflows/deploy.yml
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build
+        run: npm run build
+      
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+PACKAGE.JSON SCRIPTS:
+
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build && gh-pages -d dist"
+  }
+}
+
+GITHUB PAGES SETUP:
+
+1. Push code to GitHub repository
+2. Enable GitHub Pages in repo settings:
+   - Settings → Pages
+   - Source: GitHub Actions
+3. Trigger deployment:
+   - Push to main branch (automatic)
+   - Or use Actions tab to manually trigger
+4. Access site:
+   - https://username.github.io/exceptional-trainer/
+
+CUSTOM DOMAIN (OPTIONAL):
+
+1. Add CNAME file to public/:
+   # public/CNAME
+   exceptional-trainer.example.com
+
+2. Configure DNS:
+   - A records pointing to GitHub Pages IPs
+   - Or CNAME record pointing to username.github.io
+
+3. Update vite.config.ts:
+   base: '/'  // No repo prefix for custom domain
+
+404 HANDLING:
+
+GitHub Pages serves 404.html for unknown routes. With hash routing, this is not needed since all routes are client-side (/#/...).
+
+For history routing (future), create 404.html:
+# public/404.html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Exceptional Trainer</title>
+  <script>
+    // Redirect 404 to index with path as hash
+    const path = window.location.pathname.replace('/exceptional-trainer', '');
+    window.location.replace('/exceptional-trainer/#' + path);
+  </script>
+</head>
+<body></body>
+</html>
+
+ENVIRONMENT VARIABLES:
+
+For different environments (dev vs prod):
+
+// .env.development
+VITE_BASE_URL=/
+
+// .env.production
+VITE_BASE_URL=/exceptional-trainer/
+
+// vite.config.ts
+base: process.env.VITE_BASE_URL || '/',
+
+TESTING PRODUCTION BUILD LOCALLY:
+
+npm run build
+npm run preview
+# Opens local server with production build
+# Test that all routes and assets work correctly
+
+DEPLOYMENT CHECKLIST:
+
+- [ ] Set correct base path in vite.config.ts
+- [ ] Test build locally with `npm run preview`
+- [ ] Verify all routes work with hash routing
+- [ ] Check asset loading (images, fonts)
+- [ ] Test on mobile viewport (responsive)
+- [ ] Verify localStorage works (not blocked)
+- [ ] Test export/import progress functionality
+- [ ] Check browser console for errors
+- [ ] Test on multiple browsers (Chrome, Firefox, Safari, Edge)
+- [ ] Verify GitHub Actions workflow runs successfully
+
+ROLLBACK STRATEGY:
+
+If deployment fails or has issues:
+1. Revert commit on main branch
+2. GitHub Actions will auto-deploy previous version
+3. Or manually trigger workflow for specific commit
+
+MONITORING:
+
+- GitHub Actions dashboard shows deployment status
+- Browser console for client-side errors
+- GitHub Pages does not provide analytics (add Google Analytics if needed)
+
+================================================================================

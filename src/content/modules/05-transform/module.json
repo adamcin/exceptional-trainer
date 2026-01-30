@@ -1,0 +1,61 @@
+{
+  "id": "05-transform",
+  "version": 1,
+  "title": "Transform & Perspective Matching",
+  "description": "Achieve perfect perspective and scale matching for seamless head replacement and complex geometric transformations.",
+  "order": 5,
+  "estimatedMinutes": 180,
+  "prerequisites": ["04-blending"],
+  "learningObjectives": [
+    "Match perspective across composite elements",
+    "Use Free Transform and Warp tools effectively",
+    "Apply Puppet Warp for organic transformations",
+    "Align elements using vanishing points and guides",
+    "Maintain quality during complex transformations"
+  ],
+  "exercises": [
+    {
+      "id": "01-perspective-basics",
+      "title": "Understanding Perspective in Composites",
+      "file": "exercises/01-perspective-basics.md",
+      "estimatedMinutes": 35
+    },
+    {
+      "id": "02-transform-tools",
+      "title": "Advanced Transform Techniques",
+      "file": "exercises/02-transform-tools.md",
+      "estimatedMinutes": 45
+    },
+    {
+      "id": "03-puppet-warp",
+      "title": "Puppet Warp for Organic Adjustments",
+      "file": "exercises/03-puppet-warp.md",
+      "estimatedMinutes": 40
+    },
+    {
+      "id": "04-vanishing-points",
+      "title": "Working with Vanishing Points",
+      "file": "exercises/04-vanishing-points.md",
+      "estimatedMinutes": 35
+    }
+  ],
+  "challenges": [
+    {
+      "id": "01-head-replacement",
+      "title": "Perfect Head Replacement",
+      "file": "challenges/01-head-replacement.md",
+      "estimatedMinutes": 60
+    },
+    {
+      "id": "02-architectural-composite",
+      "title": "Architectural Perspective Composite",
+      "file": "challenges/02-architectural-composite.md",
+      "estimatedMinutes": 50
+    }
+  ],
+  "assessment": {
+    "file": "assessment.md",
+    "passingCriteria": 0.8,
+    "criteriaCount": 10
+  }
+}

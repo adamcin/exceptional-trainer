@@ -1,0 +1,55 @@
+{
+  "id": "01-layer-management",
+  "version": 1,
+  "title": "Advanced Layer Management",
+  "description": "Master advanced layer techniques including smart objects, groups, and complex hierarchies for professional compositing workflows.",
+  "order": 1,
+  "estimatedMinutes": 180,
+  "prerequisites": [],
+  "learningObjectives": [
+    "Organize complex layer hierarchies efficiently",
+    "Use smart objects for non-destructive editing",
+    "Apply advanced layer grouping and naming strategies",
+    "Understand layer blending modes and their applications",
+    "Create reusable layer comps for variations"
+  ],
+  "exercises": [
+    {
+      "id": "01-organize-layers",
+      "title": "Organizing Complex Layer Hierarchies",
+      "file": "exercises/01-organize-layers.md",
+      "estimatedMinutes": 45
+    },
+    {
+      "id": "02-smart-objects",
+      "title": "Working with Smart Objects",
+      "file": "exercises/02-smart-objects.md",
+      "estimatedMinutes": 45
+    },
+    {
+      "id": "03-layer-groups",
+      "title": "Advanced Layer Groups and Comps",
+      "file": "exercises/03-layer-groups.md",
+      "estimatedMinutes": 30
+    }
+  ],
+  "challenges": [
+    {
+      "id": "01-complex-hierarchy",
+      "title": "Build a Complex Document Structure",
+      "file": "challenges/01-complex-hierarchy.md",
+      "estimatedMinutes": 45
+    },
+    {
+      "id": "02-smart-object-workflow",
+      "title": "Non-Destructive Editing Workflow",
+      "file": "challenges/02-smart-object-workflow.md",
+      "estimatedMinutes": 30
+    }
+  ],
+  "assessment": {
+    "file": "assessment.md",
+    "passingCriteria": 0.8,
+    "criteriaCount": 10
+  }
+}

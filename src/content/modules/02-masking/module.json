@@ -1,0 +1,61 @@
+{
+  "id": "02-masking",
+  "version": 1,
+  "title": "Precision Masking Techniques",
+  "description": "Develop expert-level masking skills for seamless compositing, including hair selection, edge refinement, and complex cutouts.",
+  "order": 2,
+  "estimatedMinutes": 210,
+  "prerequisites": ["01-layer-management"],
+  "learningObjectives": [
+    "Create precise selections for complex subjects",
+    "Master hair and fur selection techniques",
+    "Refine mask edges for photorealistic results",
+    "Use channels for advanced masking workflows",
+    "Combine multiple masking techniques effectively"
+  ],
+  "exercises": [
+    {
+      "id": "01-selection-tools",
+      "title": "Advanced Selection Tools",
+      "file": "exercises/01-selection-tools.md",
+      "estimatedMinutes": 40
+    },
+    {
+      "id": "02-hair-selection",
+      "title": "Hair and Fur Selection Mastery",
+      "file": "exercises/02-hair-selection.md",
+      "estimatedMinutes": 50
+    },
+    {
+      "id": "03-edge-refinement",
+      "title": "Edge Refinement Techniques",
+      "file": "exercises/03-edge-refinement.md",
+      "estimatedMinutes": 40
+    },
+    {
+      "id": "04-channel-masking",
+      "title": "Channel-Based Masking",
+      "file": "exercises/04-channel-masking.md",
+      "estimatedMinutes": 35
+    }
+  ],
+  "challenges": [
+    {
+      "id": "01-complex-cutout",
+      "title": "Extract Complex Subject",
+      "file": "challenges/01-complex-cutout.md",
+      "estimatedMinutes": 60
+    },
+    {
+      "id": "02-composite-scene",
+      "title": "Create Seamless Composite",
+      "file": "challenges/02-composite-scene.md",
+      "estimatedMinutes": 45
+    }
+  ],
+  "assessment": {
+    "file": "assessment.md",
+    "passingCriteria": 0.8,
+    "criteriaCount": 12
+  }
+}

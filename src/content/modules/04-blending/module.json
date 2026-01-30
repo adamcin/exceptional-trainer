@@ -1,0 +1,61 @@
+{
+  "id": "04-blending",
+  "version": 1,
+  "title": "Blending & Compositing",
+  "description": "Master advanced blending techniques and compositing workflows to create seamless, photorealistic image combinations.",
+  "order": 4,
+  "estimatedMinutes": 195,
+  "prerequisites": ["03-color-matching"],
+  "learningObjectives": [
+    "Understand and apply all blending modes effectively",
+    "Create realistic lighting and shadow integration",
+    "Match texture and detail across composite elements",
+    "Use advanced layer styles for depth and dimension",
+    "Integrate elements with proper atmospheric perspective"
+  ],
+  "exercises": [
+    {
+      "id": "01-blending-modes",
+      "title": "Blending Mode Mastery",
+      "file": "exercises/01-blending-modes.md",
+      "estimatedMinutes": 40
+    },
+    {
+      "id": "02-shadow-creation",
+      "title": "Creating Realistic Shadows",
+      "file": "exercises/02-shadow-creation.md",
+      "estimatedMinutes": 45
+    },
+    {
+      "id": "03-lighting-integration",
+      "title": "Lighting Integration Techniques",
+      "file": "exercises/03-lighting-integration.md",
+      "estimatedMinutes": 50
+    },
+    {
+      "id": "04-texture-matching",
+      "title": "Texture and Detail Matching",
+      "file": "exercises/04-texture-matching.md",
+      "estimatedMinutes": 35
+    }
+  ],
+  "challenges": [
+    {
+      "id": "01-realistic-composite",
+      "title": "Build Photorealistic Composite",
+      "file": "challenges/01-realistic-composite.md",
+      "estimatedMinutes": 60
+    },
+    {
+      "id": "02-atmospheric-depth",
+      "title": "Create Atmospheric Depth",
+      "file": "challenges/02-atmospheric-depth.md",
+      "estimatedMinutes": 45
+    }
+  ],
+  "assessment": {
+    "file": "assessment.md",
+    "passingCriteria": 0.8,
+    "criteriaCount": 11
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "id": "03-color-matching",
+  "version": 1,
+  "title": "Color Matching & Correction",
+  "description": "Achieve perfect color harmony across composite elements through advanced color theory and adjustment layer techniques.",
+  "order": 3,
+  "estimatedMinutes": 165,
+  "prerequisites": ["02-masking"],
+  "learningObjectives": [
+    "Understand color relationships in compositing",
+    "Match skin tones across different sources",
+    "Use curves and color balance for precise adjustments",
+    "Apply selective color correction techniques",
+    "Maintain color consistency in complex compositions"
+  ],
+  "exercises": [
+    {
+      "id": "01-color-theory",
+      "title": "Color Theory for Compositing",
+      "file": "exercises/01-color-theory.md",
+      "estimatedMinutes": 30
+    },
+    {
+      "id": "02-curves-mastery",
+      "title": "Advanced Curves Adjustments",
+      "file": "exercises/02-curves-mastery.md",
+      "estimatedMinutes": 45
+    },
+    {
+      "id": "03-skin-tone-matching",
+      "title": "Matching Skin Tones",
+      "file": "exercises/03-skin-tone-matching.md",
+      "estimatedMinutes": 40
+    }
+  ],
+  "challenges": [
+    {
+      "id": "01-unified-lighting",
+      "title": "Create Unified Color Palette",
+      "file": "challenges/01-unified-lighting.md",
+      "estimatedMinutes": 50
+    },
+    {
+      "id": "02-time-of-day",
+      "title": "Change Time of Day in Photo",
+      "file": "challenges/02-time-of-day.md",
+      "estimatedMinutes": 40
+    }
+  ],
+  "assessment": {
+    "file": "assessment.md",
+    "passingCriteria": 0.8,
+    "criteriaCount": 10
+  }
+}
